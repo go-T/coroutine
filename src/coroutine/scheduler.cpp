@@ -66,6 +66,9 @@ void scheduler::yield_coroutine()
 void scheduler::yield_coroutine(coroutine_ptr r)
 {
     logAssert(m_current != r);
+    if(r->is_done() || r->is_blocked()) {
+        return;
+    }
     resume_coroutine(r);
 }
 
@@ -86,7 +89,7 @@ void scheduler::run()
         bool found = false;
         for(std::deque<coroutine_ptr>::iterator it = m_queue.begin(); it != m_queue.end(); ++it)
         {
-            coroutine_ptr r = *it;
+            coroutine_ptr& r = *it;
             if(!r->is_blocked() && !r->is_done() && r != m_current)
             {
                 found = true;

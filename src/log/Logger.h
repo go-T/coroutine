@@ -28,7 +28,6 @@
 #define logInfo  Logger::writer(logInfoOn, __FILE__, __LINE__, logTag, "info").write
 #define logWarn  Logger::writer(1, __FILE__, __LINE__, logTag, "warn").write
 #define logError Logger::writer(1, __FILE__, __LINE__, logTag, "error").write
-#define logFmt   Logger::fmt
 #define logAssert(c, ...) do{ if(!(c)){logError("assert " #c " failed");  Logger::logger().flush(); exit(1);}} while(0)
 
 #ifndef _FMT_LIKE
@@ -55,29 +54,13 @@ public:
     class Buffer
     {
     public:
-        Buffer(Device* d) : ref(1), device(d)
-        {
-        }
+        Buffer(Device* d);
         int ref;
         Device* device;
         std::stringstream sstream;
     };
 
     // logDebug()<< logFmt(123, 10, 10, 10) << logFmt(213);
-    template<typename T>
-    class Fmt
-    {
-    public:
-        Fmt(const T& t){}
-        void write(Writer& w){}
-    };
-
-    template<typename T>
-    static void fmt(const T& t)
-    {
-        return Fmt<T>(t);
-    }
-
 
     class Writer
     {
@@ -96,13 +79,6 @@ public:
             return *this;
         }
 
-        template<typename T>
-        Writer& operator <<(const Fmt<T>& f)
-        {
-            f.write(*this);
-            return *this;
-        }
-
         Writer& append(const char* s, int len);
         Writer& appendv(const char* fmt, va_list ap);
         Writer& appendf(const char* fmt, ...) _FMT_LIKE(2,3);
@@ -112,14 +88,6 @@ public:
 
         Writer& hex(const char* str, int len);
         Writer& bin(const char* str, int len);
-
-        // w << hex << 123;
-        template<typename T>
-        friend Writer& hex(Writer& w, T t)
-        {
-            Fmt<T>(t).write(w);
-            return w;
-        }
 
     protected:
         Buffer* buf;
