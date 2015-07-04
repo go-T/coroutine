@@ -73,9 +73,6 @@ void scheduler::resume_coroutine(coroutine_ptr r)
 {
     r->set_delegate(this);
     m_current->resume_coroutine(r);
-    if( r->is_done() ) {
-        remove(r);
-    }
 }
 
 void scheduler::run()
@@ -119,6 +116,7 @@ void scheduler::on_start(coroutine_base* r)
 void scheduler::on_stop(coroutine_base* r)
 {
     logDebug("stop %d", r->id());
+    remove(m_current);
     yield_coroutine();
 }
 
