@@ -15,6 +15,7 @@ namespace coroutine
 
 class coroutine_base;
 typedef std::shared_ptr<coroutine_base> coroutine_ptr;
+typedef std::weak_ptr<coroutine_base> coroutine_ref;
 
 class delegate
 {

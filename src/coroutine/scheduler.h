@@ -13,8 +13,10 @@
 #include "coroutine/coroutine_base.h"
 #include "log/Logger.h"
 
+#define current_coroutine coroutine::current_scheduler->current()
+
 #define yield(...) do{ \
-    logDebug("yield from %d", coroutine::current_scheduler->current()->id()); \
+    logDebug("yield from %d", current_coroutine->id()); \
     coroutine::current_scheduler->yield_coroutine( __VA_ARGS__ ); \
     } while(0)
 

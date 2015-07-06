@@ -17,7 +17,6 @@ class stack
 {
 public:
     int m_size;
-    int m_page_size;
     void * m_data;
 
 public:

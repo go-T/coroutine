@@ -65,8 +65,7 @@ void scheduler::yield_coroutine()
 
 void scheduler::yield_coroutine(coroutine_ptr r)
 {
-    logAssert(m_current != r);
-    if(r->is_done() || r->is_blocked()) {
+    if(m_current == r || r->is_done() || r->is_blocked()) {
         return;
     }
     resume_coroutine(r);
