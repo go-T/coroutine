@@ -39,7 +39,7 @@ coroutine_ptr scheduler::add(coroutine_ptr r)
     }
 
     logDebug("add %d", r->id());
-    m_queue.push_front(r);
+    m_queue.push_back(r);
     return r;
 }
 
@@ -79,7 +79,7 @@ void scheduler::resume_coroutine(coroutine_ptr r)
 
 void scheduler::run()
 {
-    logAssert(current_scheduler == nullptr);
+    //logAssert(current_scheduler == nullptr);
 
     current_scheduler = this;
 
@@ -100,6 +100,7 @@ void scheduler::run()
         if(!found)
         {
             logWarn("all coroutine blocked \n");
+            exit(1);
         }
         else
         {

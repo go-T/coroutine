@@ -13,4 +13,5 @@ add_incs(src)
 add_objs(log src/coroutine/*.cpp src/log/*.cpp)
 
 update_env()
-add_executable(coroutine src/main.cpp ${log_OBJS})
+add_executable(hello src/examples/hello.cpp ${log_OBJS})
+add_executable(lock src/examples/lock.cpp ${log_OBJS})

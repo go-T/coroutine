@@ -2,11 +2,21 @@
 ### add_pkg libzmq3 zmq
 macro(add_pkg name libs)
     message(STATUS "add pkg ${name}")
-    set(${name}_ROOT "/opt/${name}" CACHE PATH "${name}")
     
-    if(NOT EXISTS  /opt/${name})
-    	message(FATAL_ERROR "/opt/${name} not found")
-    endif()
+	set(ROOTS /opt/halo /opt /data0/opt/halo /data0)
+	
+	unset(root CACHE)  
+    foreach(root ${ROOTS})
+		if(EXISTS ${root}/${name})
+			set(${name}_ROOT "${root}/${name}" CACHE PATH "${name}")
+    		break()
+   		endif()
+    endforeach()
+    unset(root CACHE)
+    
+    if(NOT EXISTS ${${name}_ROOT})
+    	message(FATAL_ERROR "package ${name} not found")
+	endif()
     
     list(APPEND LIB_INCS ${${name}_ROOT}/include)
     
@@ -16,6 +26,14 @@ macro(add_pkg name libs)
         list(APPEND LIB_PATH ${${name}_ROOT}/lib)
         list(APPEND LIB_LIBS ${libs})
     endif(STATIC_BUILD)
+    
+    foreach(libs ${ARGN})
+    	if(STATIC_BUILD)
+    		list(APPEND LIB_LIBS ${${name}_ROOT}/lib/lib${libs}.a)
+    	else()
+    		list(APPEND LIB_LIBS ${libs})
+    	endif()
+    endforeach()
 endmacro(add_pkg name libs)
 
 ##################################################
@@ -100,6 +118,15 @@ macro(add_libs)
 	list(APPEND LIB_STATIC ${ARGN})
 endmacro()
 
+# pthread
+macro(add_pthread)
+	check_cxx_compiler_flag(-pthread support_pthread)
+	if(${support_pthread})
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+	else()
+		set(LIB_LIBS "${LIB_LIBS} pthread")
+	endif()
+endmacro()
 ##################################################
 ### 
 macro(update_env)
@@ -155,14 +182,6 @@ add_flags(-Wno-unused-but-set-variable)
 add_flags(-Wno-unused-private-field)
 add_flags(-Wno-deprecated-declarations)
 add_flags(-Wno-unused-function)
-
-# pthread
-check_cxx_compiler_flag(-pthread support_pthread)
-if(${support_pthread})
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-else()
-	set(LIB_LIBS "${LIB_LIBS} pthread")
-endif()
 
 # rpath
 SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
