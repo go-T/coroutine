@@ -33,16 +33,16 @@ protected:
 };
 
 
-template<typename T>class lock_guard;
-template<> class lock_guard<lock_t>
+template<typename T>class lock_guard_t;
+template<> class lock_guard_t<lock_t>
 {
     lock_t & m_lock;
 public:
-    lock_guard(lock_t& lock):m_lock(lock)
+    lock_guard_t(lock_t& lock):m_lock(lock)
     {
         m_lock.lock();
     }
-    ~lock_guard()
+    ~lock_guard_t()
     {
         m_lock.unlock();
     }

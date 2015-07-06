@@ -20,7 +20,6 @@ public:
     sem_t(int n=0);
     ~sem_t();
 
-
     void wait();
     void signal();
     void broadcast();

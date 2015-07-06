@@ -11,11 +11,8 @@
 #include "log/Logger.h"
 #include "iostream"
 
-
-
 int main()
 {
-    logInfo("main");
     coroutine::scheduler scheduler1;
     std::cout << "hello world0\n";
 

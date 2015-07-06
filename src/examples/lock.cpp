@@ -14,7 +14,6 @@ using namespace coroutine;
 
 int main()
 {
-    logInfo("main");
     scheduler scheduler1;
     current_scheduler = &scheduler1;
     std::cout << "hello world0\n";
