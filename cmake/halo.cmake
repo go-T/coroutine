@@ -1,9 +1,4 @@
-set(LIB_INCS "")
-set(LIB_LIBS "")
-set(LIB_OBJS "")
-set(LIB_PATH "")
-set(LIB_STATIC c m z rt dl)
-
+##################################################
 ### add_pkg libzmq3 zmq
 macro(add_pkg name libs)
     message(STATUS "add pkg ${name}")
@@ -23,21 +18,96 @@ macro(add_pkg name libs)
     endif(STATIC_BUILD)
 endmacro(add_pkg name libs)
 
+##################################################
+### add_cxx_flags [DEBUG|MINSIZE|RELEASE|RELWITH|GNU|Clang] ...
+### add_cxx_flags(DEBUG RELWITH GNU "-pthread")
+macro(add_cxx_flags)
+    set(BUILD_TYPES DEBUG MINSIZE RELEASE RELWITH)
+    set(TOOL_TYPES GNU Clang)
+    set(build )
+    set(tools )
+    set(flags )
+
+    # classify
+    foreach(f ${ARGN})
+    	list(FIND BUILD_TYPES ${f} is_build_type)
+    	list(FIND TOOL_TYPES ${f} is_tool_type)
+    	
+    	if(NOT (${is_build_type} EQUAL -1))
+    		list(APPEND build ${f})
+    	elseif(NOT (${is_tool_type} EQUAL -1))
+    		list(APPEND tools ${f})
+    	else()
+    		list(APPEND flags ${f})
+    	endif()
+    endforeach()
+
+    # tool 
+    list(FIND tools ${CMAKE_CXX_COMPILER_ID} is_tool_match)
+    list(LENGTH tools tools_len)
+    list(LENGTH build build_len)
+
+    if(${tools_len} EQUAL 0 OR ${is_tool_match} GREATER -1)
+    	if(${build_len} EQUAL 0)
+    		message("list(APPEND CMAKE_CXX_FLAGS ${flags})")
+    		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flags}")
+    	else()
+    		foreach(b ${build})
+    			message("list(APPEND CMAKE_CXX_FLAGS_${b} ${flags})")
+    			set(CMAKE_CXX_FLAGS_${b} "${CMAKE_CXX_FLAGS_${b}} ${flags}")
+    		endforeach()
+    	endif()
+    endif()
+endmacro()
+##################################################
+### add_flags
+
+include(CheckCXXCompilerFlag)
+
+macro(add_flags flags)
+    unset(add_flags_support CACHE)
+    check_cxx_compiler_flag(${flags} add_flags_support)
+	if(${add_flags_support})
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flags}")
+	elseif(${ARGC} GREATER 0)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARGN}")
+	endif()
+endmacro()
+
+##################################################
 ### add_objs base src/base/*.cpp
-macro(add_pkg name expr)
-file(GLOB ${name}_SRCS ${expr} ${ARGV})
-SET(LIB_NAME SystemBase)
-SET(LIB_SRC
-	WSystem.cpp
-	ServiceCreator.cpp
-	FCGIServer.cpp
-)
+macro(add_objs name expr)
+    file(GLOB ${name}_SRCS ${expr} ${ARGN})
+    add_library(${name} OBJECT ${${name}_SRCS})
+    set(${name}_OBJS $<TARGET_OBJECTS:${name}>) 
+endmacro()
 
-INCLUDE_DIRECTORIES(${LIB_INCS} ${CMAKE_CURRENT_SOURCE_DIR}) 
-ADD_LIBRARY(${LIB_NAME} OBJECT ${LIB_SRC})
+##################################################
+### add_incs
+macro(add_incs)
+	list(APPEND LIB_INCS ${ARGN})
+endmacro()
 
+##################################################
+### add_libs
+macro(add_libs)
+	list(APPEND LIB_LIBS ${ARGN})
+endmacro()
 
-###  usage dump_flags(${CMAKE_CURRENT_LIST_DIR})
+##################################################
+### add_static_libs
+macro(add_libs)
+	list(APPEND LIB_STATIC ${ARGN})
+endmacro()
+
+##################################################
+### 
+macro(update_env)
+	include_directories(${LIB_INCS}) 
+	link_directories(${LIB_PATH})
+endmacro()
+##################################################
+### dump_flags(${CMAKE_CURRENT_LIST_DIR})
 macro(dump_flags dir)
     get_property(includes DIRECTORY ${dir} PROPERTY INCLUDE_DIRECTORIES)
     MESSAGE("${dir}.includes: ${includes}")
@@ -46,6 +116,7 @@ macro(dump_flags dir)
     MESSAGE("${dir}.links: ${links}")
 endmacro(dump_flags dir)
 
+##################################################
 ### usage configure_dir(${from} ${to})
 macro(configure_dir srcDir destDir)
     message(STATUS "Configuring directory ${destDir}")
@@ -64,13 +135,34 @@ macro(configure_dir srcDir destDir)
     endforeach(templateFile)
 endmacro(configure_dir srcDir destDir)
 
-##
-#message(STATUS "cxx=${CMAKE_CXX_COMPILER_ID}-${CMAKE_CXX_COMPILER_VERSION}")
-##
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated -Wno-sign-compare -std=c++0x -Wall")
+##################################################
+##################################################
+set(LIB_INCS "")
+set(LIB_LIBS "")
+set(LIB_OBJS "")
+set(LIB_PATH "")
+set(LIB_STATIC c m z rt dl)
+
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated -Wno-sign-compare -Wall")
+
+# c++11
+add_flags(-std=c++11 -std=c++0x)
+add_flags(-Wno-unused-const-variable)
+add_flags(-Wno-unused-but-set-variable)
+add_flags(-Wno-unused-private-field)
+add_flags(-Wno-deprecated-declarations)
+add_flags(-Wno-unused-function)
+
+# pthread
+check_cxx_compiler_flag(-pthread support_pthread)
+if(${support_pthread})
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+else()
+	set(LIB_LIBS "${LIB_LIBS} pthread")
+endif()
 
 # rpath
 SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
@@ -78,21 +170,8 @@ SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-### clang
-if(NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-	list(APPEND LIBLIBS pthread)
-	set(NO_WARN "-Wno-unused-private-field -Wno-unused-const-variable -pthread")
-endif()
-
 ### gcc
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	set(CMAKE_EXE_LINKER_FLAGS "-pthread")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-but-set-variable")
-
-	#if(CMAKE_CXX_COMPILER_VERSION LESS "4.7")
-	#message(FATAL_ERROR "Insufficient gcc version")
-	#endif()
-
 	# gcc > 4.8 linux x64
 	if((CMAKE_CXX_COMPILER_VERSION GREATER "4.7") AND (UNIX) AND (CMAKE_SIZEOF_VOID_P EQUAL 8))
 		SET(GCC_SANITIZE_THREAD "OFF" CACHE BOOL "use thread sanitize check")
