@@ -5,7 +5,7 @@
  *      Author: zhusheng
  */
 
-#include "stack.h"
+#include "../couv/stack.h"
 #include <unistd.h>
 #include <signal.h>
 #include <sys/mman.h>
@@ -40,7 +40,7 @@ static void release_memory(void* data, size_t size, size_t page_size) {
 
 } /* namespace */
 
-namespace coroutine
+namespace couv
 {
 
 stack::stack(): m_size(SIGSTKSZ),

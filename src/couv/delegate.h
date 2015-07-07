@@ -5,12 +5,12 @@
  *      Author: zhusheng
  */
 
-#ifndef SRC_COROUTINE_DELEGATE_H_
-#define SRC_COROUTINE_DELEGATE_H_
+#ifndef SRC_COUV_DELEGATE_H_
+#define SRC_COUV_DELEGATE_H_
 
 #include <memory>
 
-namespace coroutine
+namespace couv
 {
 
 class coroutine_base;
@@ -27,4 +27,4 @@ public:
 
 } /* namespace coroutine */
 
-#endif /* SRC_COROUTINE_DELEGATE_H_ */
+#endif /* SRC_COUV_DELEGATE_H_ */

@@ -5,16 +5,16 @@
  *      Author: zhusheng
  */
 
-#ifndef SRC_COROUTINE_COROUTINE_H_
-#define SRC_COROUTINE_COROUTINE_H_
+#ifndef SRC_COUV_COROUTINE_H_
+#define SRC_COUV_COROUTINE_H_
 
 #include <ucontext.h>
 #include <functional>
 
-#include "coroutine/stack.h"
-#include "coroutine/coroutine_base.h"
+#include "../couv/coroutine_base.h"
+#include "../couv/stack.h"
 
-namespace coroutine
+namespace couv
 {
 
 class coroutine_base;
@@ -38,4 +38,4 @@ protected:
 
 } /* namespace coroutine */
 
-#endif /* SRC_COROUTINE_COROUTINE_H_ */
+#endif /* SRC_COUV_COROUTINE_H_ */

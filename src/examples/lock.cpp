@@ -4,13 +4,14 @@
  *  Created on: 2015年7月6日
  *      Author: zhusheng
  */
-#include "coroutine/scheduler.h"
-#include "coroutine/coroutine.h"
-#include "coroutine/lock.h"
+#include "../couv/lock.h"
 #include "log/Logger.h"
 #include "iostream"
 
-using namespace coroutine;
+#include "../couv/coroutine.h"
+#include "../couv/scheduler.h"
+
+using namespace couv;
 
 int main()
 {

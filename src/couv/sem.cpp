@@ -5,10 +5,11 @@
  *      Author: zhusheng
  */
 
-#include <coroutine/sem.h>
-#include <coroutine/scheduler.h>
+#include "../couv/sem.h"
 
-namespace coroutine
+#include "../couv/scheduler.h"
+
+namespace couv
 {
 
 sem_t::sem_t(int n)

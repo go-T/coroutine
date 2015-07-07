@@ -5,16 +5,16 @@
  *      Author: zhusheng
  */
 
-#ifndef SRC_COROUTINE_COROUTINE_BASE_H_
-#define SRC_COROUTINE_COROUTINE_BASE_H_
+#ifndef SRC_COUV_COROUTINE_BASE_H_
+#define SRC_COUV_COROUTINE_BASE_H_
 
 #include <ucontext.h>
 #include <functional>
 #include <memory>
 
-#include "coroutine/delegate.h"
+#include "../couv/delegate.h"
 
-namespace coroutine
+namespace couv
 {
 
 class coroutine_base
@@ -48,4 +48,4 @@ protected:
 
 } /* namespace coroutine */
 
-#endif /* SRC_COROUTINE_COROUTINE_BASE_H_ */
+#endif /* SRC_COUV_COROUTINE_BASE_H_ */

@@ -5,24 +5,25 @@
  *      Author: zhusheng
  */
 
-#ifndef SRC_COROUTINE_SCHEDULER_H_
-#define SRC_COROUTINE_SCHEDULER_H_
+#ifndef SRC_COUV_SCHEDULER_H_
+#define SRC_COUV_SCHEDULER_H_
 
 #include <deque>
-#include "coroutine/delegate.h"
-#include "coroutine/coroutine_base.h"
+
+#include "couv/coroutine_base.h"
+#include "couv/delegate.h"
 #include "log/Logger.h"
 
-#define current_coroutine coroutine::current_scheduler->current()
+#define current_coroutine couv::current_scheduler->current()
 
 #define yield(...) do{ \
     logDebug("yield from %d", current_coroutine->id()); \
-    coroutine::current_scheduler->yield_coroutine( __VA_ARGS__ ); \
+    couv::current_scheduler->yield_coroutine( __VA_ARGS__ ); \
     } while(0)
 
-#define resume coroutine::current_scheduler->resume
+#define resume couv::current_scheduler->resume
 
-namespace coroutine
+namespace couv
 {
 
 /**
@@ -61,4 +62,4 @@ extern scheduler* current_scheduler;
 
 } /* namespace coroutine */
 
-#endif /* SRC_COROUTINE_SCHEDULER_H_ */
+#endif /* SRC_COUV_SCHEDULER_H_ */

@@ -12,7 +12,7 @@ add_definitions(-DGTEST_HAS_PTHREAD=1)
 add_pkg(libuv uv)
 
 add_incs(src)
-add_objs(log src/coroutine/*.cpp src/log/*.cpp)
+add_objs(log src/couv/*.cpp src/log/*.cpp)
 
 update_env()
 add_executable(hello src/examples/hello.cpp ${log_OBJS})

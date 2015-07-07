@@ -6,19 +6,20 @@
  */
 
 
-#include "coroutine/scheduler.h"
-#include "coroutine/coroutine.h"
 #include "log/Logger.h"
 #include "iostream"
+
+#include "../couv/coroutine.h"
+#include "../couv/scheduler.h"
 
 int main()
 {
     Logger::logger().setDevice(NULL);
 
-    coroutine::scheduler scheduler1;
+    couv::scheduler scheduler1;
     std::cout << "hello world 0\n";
 
-    coroutine::coroutine_ptr r1, r2, r3;
+    couv::coroutine_ptr r1, r2, r3;
 
     r1 = scheduler1.add([&r1,&r2,&r3]{
             std::cout << "hello world 1.1\n";

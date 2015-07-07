@@ -5,13 +5,14 @@
  *      Author: zhusheng
  */
 
-#ifndef SRC_COROUTINE_LOCK_H_
-#define SRC_COROUTINE_LOCK_H_
+#ifndef SRC_COUV_LOCK_H_
+#define SRC_COUV_LOCK_H_
 
 #include <set>
-#include "coroutine/coroutine_base.h"
 
-namespace coroutine
+#include "../couv/coroutine_base.h"
+
+namespace couv
 {
 
 class lock_t
@@ -51,4 +52,4 @@ public:
 
 } /* namespace coroutine */
 
-#endif /* SRC_COROUTINE_LOCK_H_ */
+#endif /* SRC_COUV_LOCK_H_ */

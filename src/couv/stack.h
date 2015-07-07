@@ -5,12 +5,12 @@
  *      Author: zhusheng
  */
 
-#ifndef SRC_COROUTINE_STACK_H_
-#define SRC_COROUTINE_STACK_H_
+#ifndef SRC_COUV_STACK_H_
+#define SRC_COUV_STACK_H_
 
 #include <stddef.h>
 
-namespace coroutine
+namespace couv
 {
 
 class stack
@@ -28,4 +28,4 @@ public:
 
 } /* namespace coroutine */
 
-#endif /* SRC_COROUTINE_STACK_H_ */
+#endif /* SRC_COUV_STACK_H_ */

@@ -5,13 +5,14 @@
  *      Author: zhusheng
  */
 
-#include "coroutine/scheduler.h"
-#include "coroutine/coroutine.h"
-#include "coroutine/sem.h"
+#include "../couv/sem.h"
 #include "log/Logger.h"
 #include "iostream"
 
-using namespace coroutine;
+#include "../couv/coroutine.h"
+#include "../couv/scheduler.h"
+
+using namespace couv;
 
 int main()
 {

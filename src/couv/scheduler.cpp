@@ -4,12 +4,13 @@
  *  Created on: 2015年7月2日
  *      Author: zhusheng
  */
+#include "../couv/scheduler.h"
 #include <iostream>
 #include <algorithm>
-#include "scheduler.h"
-#include "coroutine.h"
 
-namespace coroutine
+#include "../couv/coroutine.h"
+
+namespace couv
 {
 static  scheduler local_scheduler;
 scheduler* current_scheduler = &local_scheduler;

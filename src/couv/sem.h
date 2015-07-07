@@ -5,13 +5,14 @@
  *      Author: zhusheng
  */
 
-#ifndef SRC_COROUTINE_SEM_H_
-#define SRC_COROUTINE_SEM_H_
+#ifndef SRC_COUV_SEM_H_
+#define SRC_COUV_SEM_H_
 
 #include <deque>
-#include "coroutine/coroutine_base.h"
 
-namespace coroutine
+#include "../couv/coroutine_base.h"
+
+namespace couv
 {
 
 class sem_t
@@ -33,4 +34,4 @@ protected:
 
 } /* namespace coroutine */
 
-#endif /* SRC_COROUTINE_SEM_H_ */
+#endif /* SRC_COUV_SEM_H_ */
