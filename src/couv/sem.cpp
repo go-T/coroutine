@@ -5,9 +5,8 @@
  *      Author: zhusheng
  */
 
-#include "../couv/sem.h"
-
-#include "../couv/scheduler.h"
+#include "couv/sem.h"
+#include "couv/scheduler.h"
 
 namespace couv
 {

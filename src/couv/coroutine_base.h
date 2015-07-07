@@ -12,7 +12,7 @@
 #include <functional>
 #include <memory>
 
-#include "../couv/delegate.h"
+#include "couv/delegate.h"
 
 namespace couv
 {

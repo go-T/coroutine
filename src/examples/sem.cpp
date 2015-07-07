@@ -5,12 +5,12 @@
  *      Author: zhusheng
  */
 
-#include "../couv/sem.h"
+#include "couv/sem.h"
 #include "log/Logger.h"
 #include "iostream"
 
-#include "../couv/coroutine.h"
-#include "../couv/scheduler.h"
+#include "couv/coroutine.h"
+#include "couv/scheduler.h"
 
 using namespace couv;
 

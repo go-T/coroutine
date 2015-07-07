@@ -5,7 +5,7 @@
  *      Author: zhusheng
  */
 
-#include "../couv/stack.h"
+#include "couv/stack.h"
 #include <unistd.h>
 #include <signal.h>
 #include <sys/mman.h>

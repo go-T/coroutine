@@ -4,11 +4,10 @@
  *  Created on: 2015年7月2日
  *      Author: zhusheng
  */
-#include "../couv/scheduler.h"
+#include "couv/scheduler.h"
 #include <iostream>
 #include <algorithm>
-
-#include "../couv/coroutine.h"
+#include "couv/coroutine.h"
 
 namespace couv
 {

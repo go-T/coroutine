@@ -11,8 +11,8 @@
 #include <ucontext.h>
 #include <functional>
 
-#include "../couv/coroutine_base.h"
-#include "../couv/stack.h"
+#include "couv/coroutine_base.h"
+#include "couv/stack.h"
 
 namespace couv
 {
