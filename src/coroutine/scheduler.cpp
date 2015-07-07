@@ -11,8 +11,8 @@
 
 namespace coroutine
 {
-
-scheduler* current_scheduler = nullptr;
+static  scheduler local_scheduler;
+scheduler* current_scheduler = &local_scheduler;
 
 scheduler::scheduler()
 {

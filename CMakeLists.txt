@@ -9,6 +9,8 @@ include(halo)
 add_definitions(-D_XOPEN_SOURCE=1)
 add_definitions(-DGTEST_HAS_PTHREAD=1)
 
+add_pkg(libuv uv)
+
 add_incs(src)
 add_objs(log src/coroutine/*.cpp src/log/*.cpp)
 

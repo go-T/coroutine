@@ -1,8 +1,6 @@
 ##################################################
 ### add_pkg libzmq3 zmq
 macro(add_pkg name libs)
-    message(STATUS "add pkg ${name}")
-    
 	set(ROOTS /opt/halo /opt /data0/opt/halo /data0)
 	
 	unset(root CACHE)  
@@ -16,6 +14,8 @@ macro(add_pkg name libs)
     
     if(NOT EXISTS ${${name}_ROOT})
     	message(FATAL_ERROR "package ${name} not found")
+    else()
+    	message(STATUS "add pkg ${name} ${${name}_ROOT}")
 	endif()
     
     list(APPEND LIB_INCS ${${name}_ROOT}/include)
@@ -26,6 +26,10 @@ macro(add_pkg name libs)
         list(APPEND LIB_PATH ${${name}_ROOT}/lib)
         list(APPEND LIB_LIBS ${libs})
     endif(STATIC_BUILD)
+    
+    if(${ARGC} EQUAL 0)
+    	return()
+    endif()
     
     foreach(libs ${ARGN})
     	if(STATIC_BUILD)
