@@ -15,11 +15,13 @@ namespace couv
 //scheduler_t* current_scheduler = &local_scheduler;
 scheduler_t* current_scheduler = nullptr;
 
-scheduler_t::scheduler_t()
+scheduler_t::scheduler_t(bool install)
 {
     m_root = std::make_shared<coroutine_base>();
     m_current = m_root;
-    current_scheduler = this;
+    if(install) {
+        current_scheduler = this;
+    }
 }
 
 scheduler_t::~scheduler_t()

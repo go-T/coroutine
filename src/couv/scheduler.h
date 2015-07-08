@@ -23,6 +23,8 @@
 
 #define resume couv::current_scheduler->resume
 
+#define go (*couv::current_scheduler)<<[&]
+
 namespace couv
 {
 
@@ -32,7 +34,7 @@ namespace couv
 class scheduler_t: public delegate_t
 {
 public:
-    scheduler_t();
+    scheduler_t(bool install=true);
     virtual ~scheduler_t();
     virtual void run();
 
@@ -45,6 +47,11 @@ public:
 
     void set_current(coroutine_ptr r) { m_current = r; }
     coroutine_ptr current(){ return m_current; }
+    
+    scheduler_t& operator<<(coroutine_base::func_type&& f){
+        add(std::move(f));
+        return *this;
+    }
 
 protected:
     void resume_coroutine(coroutine_ptr r);

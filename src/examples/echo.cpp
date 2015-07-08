@@ -18,17 +18,24 @@ int main()
     scheduler_t scheduler;
 
     loop_t loop;
-    tcp_t server(&loop);
-    server.accept([](tcp_t* client, int status){
-        client->read([](tcp_t* client, char* buf, ssize_t len){
-            client->write(buf, len);
+    
+    go{
+        tcp_t server(&loop);
+        server.listen(9527);
+        server.accept([](tcp_t* client, int status){
+            int nread = 1;
+            while (nread) {
+                nread = client->read([](tcp_t* client, char* buf, ssize_t len){
+                    client->write(buf, len);
+                });
+            }
         });
-    });
-
-    scheduler.add([&loop]{
+    };
+    
+    go{
         loop.run();
-    });
-
+    };
+    
     scheduler.run();
     return 0;
 }

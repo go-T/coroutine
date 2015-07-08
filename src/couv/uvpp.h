@@ -65,10 +65,10 @@ struct sock_addr
 class buf_t: public uv_buf_t
 {
 public:
-    buf_t():uv_buf_t(){}
-    buf_t(uv_buf_t t):uv_buf_t(t){}
-    buf_t(uv_buf_t t, size_t size){base=t.base, len=size;}
-    buf_t(char* t, size_t size){base=t, len=size;}
+    buf_t():uv_buf_t(){base=nullptr; len=0;}
+    buf_t(const uv_buf_t& t):uv_buf_t(t){}
+    buf_t(const uv_buf_t& t, size_t size){base=t.base; len=size;}
+    buf_t(char* t, size_t size){base=t; len=size;}
     virtual ~buf_t(){}
 };
 
@@ -77,10 +77,25 @@ class mem_buf_t: public buf_t
     enum{Size = 65536};
 public:
     mem_buf_t(size_t size = Size):buf_t((char*)malloc(size), size){}
-    mem_buf_t(mem_buf_t&& other) = default;
     mem_buf_t(const mem_buf_t& other) = delete;
     mem_buf_t operator=(const mem_buf_t& other) = delete;
+    
+    mem_buf_t(mem_buf_t&& other):buf_t(other){
+        other.base=nullptr;
+        other.len=0;
+    }
+    mem_buf_t(const char* str, size_t size):buf_t(memdup(str, size), size){}
 
+    static char* memdup(const char* str, size_t len)
+    {
+        if(str==nullptr || len == 0)
+            return nullptr;
+        
+        char* p = (char*)malloc(len);
+        ::memcpy(p, str, len);
+        return p;
+    }
+    
     virtual ~mem_buf_t()
     {
         if(base) {
@@ -286,7 +301,7 @@ public:
     void accept(const std::function<void(W*,int)>& cb)
     {
         int status = 0;
-        while(status == 0 && m_accept_channel.is_closed()){
+        while(status == 0 && !m_accept_channel.is_closed()){
             m_accept_channel.receive(status);
             if(status) {
                 cb(nullptr, status);
@@ -301,21 +316,22 @@ public:
     /**
      * void cb(W* client, char* buf, ssize_t len);
      */
-    void read(const std::function<void(W*, char*, ssize_t)>& cb)
+    int read(const std::function<void(W*, char*, ssize_t)>& cb)
     {
         read_start();
 
         int nread = 0;
-        while(nread == 0 && m_accept_channel.is_closed()){
+        while(nread > 0 && !m_accept_channel.is_closed()){
             m_read_channel.receive(nread);
             cb(static_cast<W*>(this), m_alloc_buf.base, nread);
         }
+        return nread;
     }
 
     /**
      * void cb(W* client, ssize_t len);
      */
-    void write(const char* str, int len, const std::function<void(W*, ssize_t)>& cb)
+    int write(const char* str, int len, const std::function<void(W*, ssize_t)>& cb)
     {
         typedef mixed<uv_write_t, mem_buf_t> write_t;
 
@@ -334,15 +350,15 @@ public:
         } else {
             cb(static_cast<W*>(this), m_read_channel.receive());
         }
+        return ret;
     }
 
     int write(const char* str, int len)
     {
         typedef mixed<uv_write_t, mem_buf_t> write_t;
 
-        write_t* request = new write_t(mem_buf_t(0));
+        write_t* request = new write_t(mem_buf_t(str,len));
         request->data = this;
-        request->m_data.assign(str, len);
         return ::uv_write(request, stream(), &request->m_data, 1, [](uv_write_t* req, int status){
             delete static_cast<write_t*>(req);
         });
@@ -360,6 +376,52 @@ public:
                 });
     }
 };
+    
+class dns_t
+{
+    loop_t* m_loop;
+    channel< std::tuple<int,addrinfo*> > m_getaddr_channel;
+public:
+    dns_t(loop_t* loop):m_loop(loop)
+    {
+    }
+    
+    int get_addr_info(const char*host, int port, std::function<void(int, struct addrinfo*)>&& cb)
+    {
+        typedef mixed<uv_getaddrinfo_t, addrinfo> getaddrinfo_t;
+        
+        getaddrinfo_t* req = new getaddrinfo_t;
+        req->data = this;
+        
+        struct addrinfo& hints = req->m_data;
+        memset(&hints, 0, sizeof(addrinfo));
+        hints.ai_family = AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_flags = 0;
+        hints.ai_protocol = 0;
+        
+        char buf[20];
+        snprintf(buf, 20, "%d", port);
+        
+        int ret = ::uv_getaddrinfo(m_loop->get(), req,
+                                   [](uv_getaddrinfo_t* req,int status, struct addrinfo* res){
+                                       void*data = req->data;
+                                       delete req;
+                                       static_cast<dns_t*>(data)->m_getaddr_channel.send(std::make_tuple(status, res));
+                                   }, host, buf, &req->m_data);
+        if(ret){
+            cb(ret, nullptr);
+            return ret;
+        } else {
+            std::tuple<int,addrinfo*> node = m_getaddr_channel.receive();
+            int status = std::get<0>(node);
+            struct addrinfo* addr_info = std::get<1>(node);
+            cb(status, addr_info);
+            ::uv_freeaddrinfo(addr_info);
+            return status;
+        }
+    }
+};
 
 class tcp_t: public stream_t<tcp_t, uv_tcp_t>
 {
@@ -368,7 +430,6 @@ protected:
     typedef mixed<uv_connect_t, sock_addr> connect_t;
 
     channel<int> m_connect_channel;
-    channel<std::tuple<int,addrinfo*> > m_getaddr_channel;
 public:
     tcp_t(loop_t* loop)
             : parent_type(loop)
@@ -410,8 +471,27 @@ public:
     {
         return ::uv_tcp_bind(get(), addr, flags);
     }
+    
+    int listen(int port, const char* host="0.0.0.0", int backlog=128)
+    {
+        dns_t dns(loop());
+        
+        int ret = 0;
+        dns.get_addr_info(host, port, [this, &ret](int status, struct addrinfo * addr){
+            if (status == 0) {
+                ret = bind(addr->ai_addr);
+            } else {
+                ret = status;
+            }
+        });
+        
+        if (ret == 0) {
+            ret = parent_type::listen(backlog);
+        }
+        return ret;
+    }
 
-    void connect(connect_t* req, const std::function<void(tcp_t*, int)>& cb)
+    int connect(connect_t* req, const std::function<void(tcp_t*, int)>& cb)
     {
         req->data = this;
         int ret = ::uv_tcp_connect(req, get(), req->m_data.addr(), [](uv_connect_t* req, int status){
@@ -425,9 +505,10 @@ public:
         } else {
             cb(this, m_connect_channel.receive());
         }
+        return ret;
     }
 
-    void connnect_ip(const char*ip, int port, const std::function<void(tcp_t*, int)>& cb)
+    int connnect_ip(const char*ip, int port, const std::function<void(tcp_t*, int)>& cb)
     {
         connect_t* req = new connect_t;
         int ret = ::uv_ip4_addr(ip, port, req->m_data.addr_v4());
@@ -437,9 +518,10 @@ public:
         } else {
             connect(req, cb);
         }
+        return ret;
     }
 
-    void connnect_ipv6(const char*ip, int port, const std::function<void(tcp_t*, int)>& cb)
+    int connnect_ipv6(const char*ip, int port, const std::function<void(tcp_t*, int)>& cb)
     {
         connect_t* req = new connect_t;
         int ret = ::uv_ip6_addr(ip, port, req->m_data.addr_v6());
@@ -449,47 +531,29 @@ public:
         } else {
             connect(req, cb);
         }
+        return ret;
     }
 
-    void connect_host(const char*host, int port, const std::function<void(tcp_t*, int)>& cb)
+    int connect_host(const char*host, int port, const std::function<void(tcp_t*, int)>& cb)
     {
-        typedef mixed<uv_getaddrinfo_t, addrinfo> getaddrinfo_t;
-
-        getaddrinfo_t* req = new getaddrinfo_t;
-        req->data = this;
-
-        struct addrinfo& hints = req->m_data;
-        memset(&hints, 0, sizeof(addrinfo));
-        hints.ai_family = AF_UNSPEC;
-        hints.ai_socktype = SOCK_STREAM;
-        hints.ai_flags = 0;
-        hints.ai_protocol = 0;
-
-        char buf[20];
-        snprintf(buf, 20, "%d", port);
-
-        int ret = ::uv_getaddrinfo(loop()->get(), req,
-                [](uv_getaddrinfo_t* req,int status, struct addrinfo* res){
-                    void*data = req->data;
-                    delete req;
-                    static_cast<tcp_t*>(data)->m_getaddr_channel.send(std::make_tuple(status, res));
-                }, host, buf, &req->m_data);
-
-        if(ret){
-            cb(this, ret);
-        } else {
-            std::tuple<int,addrinfo*> node = m_getaddr_channel.receive();
-            int status = std::get<0>(node);
-            addrinfo* addr_info = std::get<1>(node);
-            if(status) {
-                ::uv_freeaddrinfo(addr_info);
+        int ret = 0;
+        connect_t* req = new connect_t;
+        
+        dns_t dns(loop());
+        dns.get_addr_info(host, port, [&req, &ret](int status, struct addrinfo * addr){
+            if (status == 0) {
+                req->m_data.assign(addr->ai_addr);
             } else {
-                connect_t* connect_req = new connect_t;
-                connect_req->m_data.assign(addr_info->ai_addr);
-                ::uv_freeaddrinfo(addr_info);
-                connect(connect_req, cb);
+                ret = status;
             }
+        });
+        
+        if (ret == 0) {
+            ret = connect(req, cb);
+        } else {
+            delete req;
         }
+        return ret;
     }
 };
 

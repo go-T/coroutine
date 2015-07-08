@@ -38,8 +38,8 @@ public:
         if(m_closed)
             return;
 
-        m_sem.signal();
         m_queue.push_back(t);
+        m_sem.signal();
     }
 
     void receive(T& t) {

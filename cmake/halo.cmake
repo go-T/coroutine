@@ -71,7 +71,7 @@ macro(add_cxx_flags)
 
     if(${tools_len} EQUAL 0 OR ${is_tool_match} GREATER -1)
     	if(${build_len} EQUAL 0)
-    		message("list(APPEND CMAKE_CXX_FLAGS ${flags})")
+    		#message("list(APPEND CMAKE_CXX_FLAGS ${flags})")
     		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flags}")
     	else()
     		foreach(b ${build})
@@ -99,31 +99,28 @@ endmacro()
 ##################################################
 ### add_objs base src/base/*.cpp
 macro(add_objs name expr)
+	include_directories(${LIB_INCS})
     file(GLOB ${name}_SRCS ${expr} ${ARGN})
     add_library(${name} OBJECT ${${name}_SRCS})
-    set(${name}_OBJS $<TARGET_OBJECTS:${name}>) 
+    set(${name}_OBJS $<TARGET_OBJECTS:${name}>)
 endmacro()
 
 ##################################################
 ### add_incs
 macro(add_incs)
-	list(APPEND LIB_INCS ${ARGN})
+	set(LIB_INCS ${LIB_INCS} ${ARGN})
 endmacro()
 
 ##################################################
 ### add_libs
 macro(add_libs)
-	list(APPEND LIB_LIBS ${ARGN})
+	set(LIB_LIBS ${LIB_LIBS} ${ARGN})
 endmacro()
 
 ##################################################
 ### add_static_libs
-macro(add_libs)
-	list(APPEND LIB_LIBS ${ARGN})
-endmacro()
-
 macro(add_static_libs)
-	list(APPEND LIB_STATIC ${ARGN})
+	set(LIB_STATIC ${LIB_STATIC} ${ARGN})
 endmacro()
 
 # pthread
@@ -150,7 +147,7 @@ endmacro()
 
 macro(build_exe exe)
 	begin_build(${exe})
-	add_executable(${exe} ${ARGN})
+	add_executable(${exe} ${ARGN} ${LIB_OBJS})
 	end_build(${exe})
 endmacro()
 ##################################################
@@ -193,15 +190,18 @@ set(LIB_STATIC c m z rt dl)
 
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated -Wno-sign-compare -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 
 # c++11
 add_flags(-std=c++11 -std=c++0x)
 add_flags(-Wno-unused-const-variable)
 add_flags(-Wno-unused-but-set-variable)
 add_flags(-Wno-unused-private-field)
-add_flags(-Wno-deprecated-declarations)
 add_flags(-Wno-unused-function)
+add_flags(-Wno-deprecated-declarations)
+add_flags(-Wno-sign-compare)
+add_flags(-Wno-deprecated)
+add_flags(-Wno-unused-parameter)
 
 add_cxx_flags(Clang -stdlib=libc++)
 
