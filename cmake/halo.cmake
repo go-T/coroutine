@@ -119,6 +119,10 @@ endmacro()
 ##################################################
 ### add_static_libs
 macro(add_libs)
+	list(APPEND LIB_LIBS ${ARGN})
+endmacro()
+
+macro(add_static_libs)
 	list(APPEND LIB_STATIC ${ARGN})
 endmacro()
 
@@ -132,10 +136,22 @@ macro(add_pthread)
 	endif()
 endmacro()
 ##################################################
-### 
-macro(update_env)
+###
+macro(begin_build)
 	include_directories(${LIB_INCS}) 
 	link_directories(${LIB_PATH})
+endmacro()
+
+macro(end_build)
+	foreach(exe ${ARGN})
+		target_link_libraries(${exe} ${LIB_LIBS})
+	endforeach()
+endmacro()
+
+macro(build_exe exe)
+	begin_build(${exe})
+	add_executable(${exe} ${ARGN})
+	end_build(${exe})
 endmacro()
 ##################################################
 ### dump_flags(${CMAKE_CURRENT_LIST_DIR})
@@ -186,6 +202,8 @@ add_flags(-Wno-unused-but-set-variable)
 add_flags(-Wno-unused-private-field)
 add_flags(-Wno-deprecated-declarations)
 add_flags(-Wno-unused-function)
+
+add_cxx_flags(Clang -stdlib=libc++)
 
 # rpath
 SET(CMAKE_SKIP_BUILD_RPATH  FALSE)

@@ -29,11 +29,11 @@ namespace couv
 /**
  * 不管如何切换
  */
-class scheduler: public delegate
+class scheduler_t: public delegate_t
 {
 public:
-    scheduler();
-    virtual ~scheduler();
+    scheduler_t();
+    virtual ~scheduler_t();
     virtual void run();
 
     coroutine_ptr add(coroutine_base::func_type&& f);
@@ -58,7 +58,7 @@ protected:
     std::deque<coroutine_ptr> m_queue;
 };
 
-extern scheduler* current_scheduler;
+extern scheduler_t* current_scheduler;
 
 } /* namespace coroutine */
 

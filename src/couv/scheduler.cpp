@@ -11,26 +11,28 @@
 
 namespace couv
 {
-static  scheduler local_scheduler;
-scheduler* current_scheduler = &local_scheduler;
+//static  scheduler_t local_scheduler;
+//scheduler_t* current_scheduler = &local_scheduler;
+scheduler_t* current_scheduler = nullptr;
 
-scheduler::scheduler()
+scheduler_t::scheduler_t()
 {
     m_root = std::make_shared<coroutine_base>();
     m_current = m_root;
+    current_scheduler = this;
 }
 
-scheduler::~scheduler()
+scheduler_t::~scheduler_t()
 {
     logAssert(m_current == m_root);
 }
 
-coroutine_ptr scheduler::add(coroutine_base::func_type&& f)
+coroutine_ptr scheduler_t::add(coroutine_base::func_type&& f)
 {
     return add(coroutine_ptr(new coroutine(f)));
 }
 
-coroutine_ptr scheduler::add(coroutine_ptr r)
+coroutine_ptr scheduler_t::add(coroutine_ptr r)
 {
     logAssert(r != nullptr);
 
@@ -43,7 +45,7 @@ coroutine_ptr scheduler::add(coroutine_ptr r)
     return r;
 }
 
-void scheduler::remove(coroutine_ptr r)
+void scheduler_t::remove(coroutine_ptr r)
 {
     logDebug("remove %d", r->id());
     if(r != m_root) {
@@ -57,13 +59,13 @@ void scheduler::remove(coroutine_ptr r)
 /**
  * resume root looper
  */
-void scheduler::yield_coroutine()
+void scheduler_t::yield_coroutine()
 {
     logAssert(m_current != m_root);
     resume_coroutine(m_root);
 }
 
-void scheduler::yield_coroutine(coroutine_ptr r)
+void scheduler_t::yield_coroutine(coroutine_ptr r)
 {
     if(m_current == r || r->is_done() || r->is_blocked()) {
         return;
@@ -71,13 +73,13 @@ void scheduler::yield_coroutine(coroutine_ptr r)
     resume_coroutine(r);
 }
 
-void scheduler::resume_coroutine(coroutine_ptr r)
+void scheduler_t::resume_coroutine(coroutine_ptr r)
 {
     r->set_delegate(this);
     m_current->resume_coroutine(r);
 }
 
-void scheduler::run()
+void scheduler_t::run()
 {
     //logAssert(current_scheduler == nullptr);
 
@@ -111,12 +113,12 @@ void scheduler::run()
     current_scheduler = nullptr;
 }
 
-void scheduler::on_start(coroutine_base* r)
+void scheduler_t::on_start(coroutine_base* r)
 {
     logDebug("start %d", r->id());
 }
 
-void scheduler::on_stop(coroutine_base* r)
+void scheduler_t::on_stop(coroutine_base* r)
 {
     logDebug("stop %d", r->id());
     remove(m_current);

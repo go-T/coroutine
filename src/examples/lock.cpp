@@ -17,8 +17,7 @@ int main()
 {
     Logger::logger().setDevice(NULL);
 
-    scheduler scheduler1;
-    current_scheduler = &scheduler1;
+    scheduler_t scheduler1;
     std::cout << "hello world 0\n";
 
     lock_t lock;

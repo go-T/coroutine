@@ -11,8 +11,8 @@
 namespace couv
 {
 
-sem_t::sem_t(int n)
-:m_counter(n)
+sem_t::sem_t(int n, int limit)
+:m_counter(n),m_limit(limit)
 {
 }
 

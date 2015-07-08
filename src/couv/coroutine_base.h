@@ -36,14 +36,14 @@ public:
     bool is_blocked()const { return m_blocked; }
     bool is_done()const    { return m_done;    }
     void set_blocked(bool block)  { m_blocked = block; }
-    void set_delegate(delegate *d){ m_delegate = d;    }
+    void set_delegate(delegate_t *d){ m_delegate = d;    }
 protected:
     bool m_active;
     bool m_blocked;
     bool m_done;
     int  m_id;
     ucontext_t m_ctx;
-    delegate*  m_delegate;
+    delegate_t*  m_delegate;
 };
 
 } /* namespace coroutine */

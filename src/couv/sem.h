@@ -18,7 +18,7 @@ namespace couv
 class sem_t
 {
 public:
-    sem_t(int n=0);
+    sem_t(int n=0, int limit=-1);
     ~sem_t();
 
     void wait();
@@ -29,6 +29,7 @@ public:
 
 protected:
     int m_counter;
+    int m_limit;
     std::deque<coroutine_ptr> m_queue;
 };
 

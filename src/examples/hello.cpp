@@ -16,7 +16,7 @@ int main()
 {
     Logger::logger().setDevice(NULL);
 
-    couv::scheduler scheduler1;
+    couv::scheduler_t scheduler1;
     std::cout << "hello world 0\n";
 
     couv::coroutine_ptr r1, r2, r3;

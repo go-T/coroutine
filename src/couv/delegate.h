@@ -17,10 +17,10 @@ class coroutine_base;
 typedef std::shared_ptr<coroutine_base> coroutine_ptr;
 typedef std::weak_ptr<coroutine_base> coroutine_ref;
 
-class delegate
+class delegate_t
 {
 public:
-    virtual ~delegate() = default;
+    virtual ~delegate_t() = default;
     virtual void on_start(coroutine_base*) = 0;
     virtual void on_stop(coroutine_base*) = 0;
 };
