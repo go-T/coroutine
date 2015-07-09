@@ -16,6 +16,7 @@
 #include <sys/un.h>
 #include "couv/sem.h"
 #include "couv/channel.h"
+#include "couv/scheduler.h"
 #include "log/Logger.h"
 
 namespace couv
@@ -156,41 +157,84 @@ public:
         return m_loop.get();
     }
 
+    bool is_alive()
+    {
+        return ::uv_loop_alive(get());
+    }
+
     int run(uv_run_mode mode = UV_RUN_DEFAULT)
     {
         return uv_run(get(), mode);
     }
 };
 
+class uvscheduler_t: public scheduler_t
+{
+    loop_t s_loop;
+public:
+    uvscheduler_t(bool install=true)
+            :scheduler_t(install)
+    {
+    }
+
+    virtual bool has_more()
+    {
+        return s_loop.run(UV_RUN_NOWAIT) != 0;
+    }
+
+    loop_t* loop()
+    {
+        return &s_loop;
+    }
+
+    static uvscheduler_t* self()
+    {
+        return static_cast<uvscheduler_t*>(s_instance);
+    }
+};
+
+
 template<typename T>
 class handle_t
 {
+    typedef handle_t<T> self_type;
+    
     loop_t* m_loop;
-    std::shared_ptr<T> m_handle;
-
+    T* m_handle;
+    
     static void close(T* t)
     {
         ::uv_close(reinterpret_cast<uv_handle_t*>(t), on_close);
     }
+
     static void on_close(uv_handle_t* h)
     {
         delete h;
     }
-public:
-    handle_t(loop_t* loop)
-            : m_loop(loop), m_handle(new T, close)
-    {
-        get()->data = this;
-    }
-    handle_t(loop_t* loop, T* t)
-            : m_loop(loop), m_handle(t, close)
-    {
-        get()->data = this;
-    }
 
+    static loop_t* get_loop(loop_t* loop)
+    {
+        return loop?loop:uvscheduler_t::self()->loop();
+    }
+public:
+    handle_t(loop_t* lp=nullptr, T* t = nullptr)
+        : m_loop(get_loop(lp)), m_handle(t?t:new T)
+    {
+        m_handle->data = this;
+    }
+    
+    ~handle_t()
+    {
+        logDebug("~handle_t()");
+        close(m_handle);
+    }
+    
+    handle_t(const self_type& other) = delete;
+    self_type& operator=(const self_type& other) = delete;
+    
     T*get()
     {
-        return m_handle.get();
+        return m_handle;
     }
 
     loop_t* loop()
@@ -220,6 +264,33 @@ public:
         return ::uv_is_closing(handle());
     }
 };
+    
+class idle_t: public handle_t<uv_idle_t>
+{
+    std::function<void()> m_cb;
+public:
+    idle_t(std::function<void()>&& cb, loop_t* lp=nullptr)
+            :handle_t<uv_idle_t>(lp)
+    {
+        std::swap(m_cb, cb);
+        ::uv_idle_init(loop()->get(), get());
+        start();
+    }
+
+    int start()
+    {
+        return ::uv_idle_start(get(), [](uv_idle_t* t){
+            idle_t* self = static_cast<idle_t*>(t->data);
+            self->m_cb();
+            delete self;
+        });
+    }
+
+    int stop()
+    {
+        return ::uv_idle_stop(get());
+    }
+};
 
 template<typename W, typename T>
 class stream_t: public handle_t<T>
@@ -228,18 +299,13 @@ protected:
     typedef stream_t<W,T> self_type;
     typedef W wrapper_type;
 
-    channel<int> m_accept_channel;
     channel<int> m_read_channel;
     channel<int> m_write_channel;
 
     mem_buf_t m_alloc_buf;
 public:
-    stream_t(loop_t* loop)
-            : handle_t<T>(loop)
-    {
-    }
-    stream_t(loop_t* loop,T* t)
-            : handle_t<T>(loop, t)
+    stream_t(loop_t* lp=nullptr,T* t=nullptr)
+            : handle_t<T>(lp, t)
     {
     }
 
@@ -247,12 +313,28 @@ public:
     {
         return reinterpret_cast<uv_stream_t*>(this->get());
     }
+    
+    bool is_readable()const
+    {
+        return ::uv_is_readable(stream());
+    }
+    
+    bool is_writable()const
+    {
+        return ::uv_is_writable(stream());
+    }
+    
+    int set_blocking(bool blocking)
+    {
+        return ::uv_stream_set_blocking(stream(), blocking);
+    }
 
     int listen(int backlog=128)
     {
         return ::uv_listen(stream(), backlog,
                 [](uv_stream_t* t, int status){
-                    static_cast<self_type*>(t->data)->m_accept_channel.send(status);
+                    logDebug("uv_connection_cb: %d", status);
+                    static_cast<self_type*>(t->data)->m_read_channel.send(status);
                 });
     }
 
@@ -265,9 +347,11 @@ public:
     {
         return ::uv_read_start(stream(),
                 [](uv_handle_t* t, size_t suggested_size, uv_buf_t* buf){
+                    logDebug("uv_alloc_cb: %lu", suggested_size);
                     *buf = static_cast<self_type*>(t->data)->m_alloc_buf;
                 },
                 [](uv_stream_t* t, ssize_t nread, const uv_buf_t* buf){
+                    logDebug("uv_read_cb: %ld", nread);
                     self_type* self = static_cast<self_type*>(t->data);
                     logAssert(buf->base == self->m_alloc_buf.base);
                     self->m_read_channel.send(nread);
@@ -279,38 +363,24 @@ public:
         return ::uv_read_stop(stream());
     }
 
-    bool is_readable()const
-    {
-        return ::uv_is_readable(stream());
-    }
-
-    bool is_writable()const
-    {
-        return ::uv_is_writable(stream());
-    }
-
-    int set_blocking(bool blocking)
-    {
-        return ::uv_stream_set_blocking(stream(), blocking);
-    }
-
     /**
      * void cb(W* client, int status);
      */
-    template<typename C = W>
+    template<typename Client = W>
     void accept(const std::function<void(W*,int)>& cb)
     {
         int status = 0;
-        while(status == 0 && !m_accept_channel.is_closed()){
-            m_accept_channel.receive(status);
+        while(m_read_channel.receive(status) && status == 0){
+            logDebug("accept: %d", status);
             if(status) {
                 cb(nullptr, status);
             } else {
-                C c(this->loop());
-                accept(c);
-                cb(&c, status);
+                Client* client = new Client(this->loop());
+                accept(*client);
+                cb(client, status);
             }
         }
+        logDebug("accept quit: %d", status);
     }
 
     /**
@@ -321,10 +391,11 @@ public:
         read_start();
 
         int nread = 0;
-        while(nread > 0 && !m_accept_channel.is_closed()){
-            m_read_channel.receive(nread);
+        while(m_read_channel.receive(nread) && nread > 0){
+            logDebug("read: %ld", nread);
             cb(static_cast<W*>(this), m_alloc_buf.base, nread);
         }
+        logDebug("read quit: %ld", nread);
         return nread;
     }
 
@@ -335,21 +406,21 @@ public:
     {
         typedef mixed<uv_write_t, mem_buf_t> write_t;
 
-        write_t* request = new write_t(mem_buf_t(0));
+        write_t* request = new write_t(mem_buf_t(str,len));
         request->data = this;
-        request->m_data.assign(str, len);
-
+        
         int ret = uv_write(request, stream(), &request->m_data, 1, [](uv_write_t* req, int status){
             void* data = req->data;
             delete static_cast<write_t*>(req);
-            static_cast<self_type*>(data)->m_read_channel.send(status);
+            static_cast<self_type*>(data)->m_write_channel.send(status);
         });
 
         if(ret) {
             cb(static_cast<W*>(this), ret);
         } else {
-            cb(static_cast<W*>(this), m_read_channel.receive());
+            cb(static_cast<W*>(this), m_write_channel.receive());
         }
+        logDebug("write quit: %ld", ret);
         return ret;
     }
 
@@ -359,9 +430,11 @@ public:
 
         write_t* request = new write_t(mem_buf_t(str,len));
         request->data = this;
-        return ::uv_write(request, stream(), &request->m_data, 1, [](uv_write_t* req, int status){
+        int ret = ::uv_write(request, stream(), &request->m_data, 1, [](uv_write_t* req, int status){
             delete static_cast<write_t*>(req);
         });
+        logDebug("write quit: %ld", ret);
+        return ret;
     }
 
     /**
@@ -369,11 +442,16 @@ public:
      */
     int shutdown()
     {
+        m_read_channel.close();
+        m_write_channel.close();
+        
         uv_shutdown_t* req = new uv_shutdown_t();
-        return ::uv_shutdown(req, stream(),
+        int ret = ::uv_shutdown(req, stream(),
                 [](uv_shutdown_t* req, int status){
                     delete static_cast<uv_shutdown_t*>(req);
                 });
+        logDebug("shutdown quit: %ld", ret);
+        return ret;
     }
 };
     
@@ -382,7 +460,7 @@ class dns_t
     loop_t* m_loop;
     channel< std::tuple<int,addrinfo*> > m_getaddr_channel;
 public:
-    dns_t(loop_t* loop):m_loop(loop)
+    dns_t(loop_t* lp=nullptr):m_loop(lp)
     {
     }
     
@@ -428,18 +506,11 @@ class tcp_t: public stream_t<tcp_t, uv_tcp_t>
 protected:
     typedef stream_t<tcp_t, uv_tcp_t> parent_type;
     typedef mixed<uv_connect_t, sock_addr> connect_t;
-
-    channel<int> m_connect_channel;
 public:
-    tcp_t(loop_t* loop)
-            : parent_type(loop)
+    tcp_t(loop_t* lp=nullptr, uv_tcp_t*t=nullptr)
+            : parent_type(lp, t)
     {
-        ::uv_tcp_init(loop->get(), get());
-    }
-    explicit tcp_t(loop_t* loop, uv_tcp_t*t)
-            : parent_type(loop, t)
-    {
-        ::uv_tcp_init(loop->get(), get());
+        ::uv_tcp_init(this->loop()->get(), get());
     }
 
     int set_nodely(bool enable)
@@ -493,17 +564,18 @@ public:
 
     int connect(connect_t* req, const std::function<void(tcp_t*, int)>& cb)
     {
-        req->data = this;
+        channel<int> chan;
+        req->data = &chan;
         int ret = ::uv_tcp_connect(req, get(), req->m_data.addr(), [](uv_connect_t* req, int status){
             void* data = req->data;
             delete req;
-            static_cast<tcp_t*>(data)->m_connect_channel.send(status);
+            ((channel<int>*)data)->send(status);
         });
         if(ret) {
             cb(this, ret);
             delete req;
         } else {
-            cb(this, m_connect_channel.receive());
+            cb(this, chan.receive());
         }
         return ret;
     }

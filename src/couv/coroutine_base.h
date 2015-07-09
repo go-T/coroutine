@@ -20,10 +20,6 @@ namespace couv
 class coroutine_base
 {
 public:
-    typedef void sign_type();
-    typedef std::function<sign_type> func_type;
-
-public:
     coroutine_base();
     virtual ~coroutine_base();
     virtual void resume_coroutine(coroutine_ptr other);
@@ -35,8 +31,10 @@ public:
     bool is_active()const  { return m_active;  }
     bool is_blocked()const { return m_blocked; }
     bool is_done()const    { return m_done;    }
-    void set_blocked(bool block)  { m_blocked = block; }
+    void set_blocked(bool block)    { m_blocked = block; }
     void set_delegate(delegate_t *d){ m_delegate = d;    }
+
+    static coroutine_ptr self();
 protected:
     bool m_active;
     bool m_blocked;

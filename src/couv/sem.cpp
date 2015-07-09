@@ -23,8 +23,8 @@ sem_t::~sem_t()
 void sem_t::wait()
 {
     if(--m_counter < 0) {
-        current_coroutine->set_blocked(true);
-        m_queue.push_back(current_coroutine);
+        coroutine_base::self()->set_blocked(true);
+        m_queue.push_back(coroutine_base::self());
         yield();
     }
 }

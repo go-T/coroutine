@@ -11,33 +11,39 @@
 using namespace couv;
 using namespace couv::uvpp;
 
+
 int main()
 {
     //Logger::logger().setDevice(NULL);
 
-    scheduler_t scheduler;
+    uvscheduler_t scheduler;
 
-    loop_t loop;
-    
-    go{
-        tcp_t server(&loop);
+    go {
+        tcp_t server;
         server.listen(9527);
-        server.accept([](tcp_t* client, int status){
-            int nread = 1;
-            while (nread) {
-                nread = client->read([](tcp_t* client, char* buf, ssize_t len){
-                    client->write(buf, len);
+        server.accept([&](tcp_t* new_conn, int status){
+            logDebug("new_conn %p", new_conn);
+            goo[&server, new_conn]{
+                std::shared_ptr<tcp_t> client(new_conn);
+                client->read([&](tcp_t* client, char* buf, ssize_t len){
+                    buf[len] = 0;
+                    if (strncasecmp(buf, "quit\r\n", len) == 0) {
+                        client->write("bye", 3, [](tcp_t* client, int len){
+                            client->shutdown();
+                        });
+                    } else if(strncasecmp(buf, "exit\r\n", len) == 0) {
+                        client->write("byebye", 3, [&](tcp_t* client, int len){
+                            client->shutdown();
+                            server.shutdown();
+                        });
+                    } else {
+                        client->write(buf, len);
+                    }
                 });
-            }
+            };
         });
     };
-    
-    go{
-        loop.run();
-    };
-    
+
     scheduler.run();
     return 0;
 }
-
-

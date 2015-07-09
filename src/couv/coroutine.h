@@ -23,6 +23,9 @@ class coroutine_base;
 class coroutine: public coroutine_base
 {
 public:
+    typedef void sign_type();
+    typedef std::function<sign_type> func_type;
+public:
     coroutine(func_type f);
 
 protected:

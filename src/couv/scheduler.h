@@ -10,20 +10,18 @@
 
 #include <deque>
 
-#include "couv/coroutine_base.h"
 #include "couv/delegate.h"
 #include "log/Logger.h"
 
-#define current_coroutine couv::current_scheduler->current()
-
 #define yield(...) do{ \
-    logDebug("yield from %d", current_coroutine->id()); \
-    couv::current_scheduler->yield_coroutine( __VA_ARGS__ ); \
+    logDebug("yield from %d", couv::coroutine_base::self()->id()); \
+    couv::scheduler_t::self()->yield_coroutine( __VA_ARGS__ ); \
     } while(0)
 
-#define resume couv::current_scheduler->resume
+#define resume couv::scheduler_t::self()->resume
 
-#define go (*couv::current_scheduler)<<[&]
+#define go (*couv::scheduler_t::self())<<[&]
+#define goo (*couv::scheduler_t::self())<<
 
 namespace couv
 {
@@ -34,38 +32,52 @@ namespace couv
 class scheduler_t: public delegate_t
 {
 public:
+    typedef void sign_type();
+    typedef std::function<sign_type> func_type;
+public:
     scheduler_t(bool install=true);
     virtual ~scheduler_t();
+    virtual bool add(coroutine_ptr r);
+    virtual void remove(coroutine_ptr r);
     virtual void run();
-
-    coroutine_ptr add(coroutine_base::func_type&& f);
-    coroutine_ptr add(coroutine_ptr r);
-    void remove(coroutine_ptr r);
-
+    
     void yield_coroutine(coroutine_ptr r);
     void yield_coroutine();
+    
+    coroutine_ptr add(const func_type& f);
+    coroutine_ptr add(func_type&& f);
+    scheduler_t& operator<<(const func_type& f);
+    scheduler_t& operator<<(func_type&& f);
 
     void set_current(coroutine_ptr r) { m_current = r; }
     coroutine_ptr current(){ return m_current; }
-    
-    scheduler_t& operator<<(coroutine_base::func_type&& f){
-        add(std::move(f));
-        return *this;
+
+    void stop()         { m_stop = true; }
+    bool is_stop()const { return m_stop; }
+
+    void install()           { s_instance = this; }
+    bool is_installed()const { return s_instance == this; }
+
+    static scheduler_t* self()
+    {
+        logAssert(s_instance != nullptr);
+        return s_instance;
     }
 
 protected:
-    void resume_coroutine(coroutine_ptr r);
+    virtual void resume_coroutine(coroutine_ptr r);
+    virtual bool has_more();
 
     virtual void on_start(coroutine_base* r);
     virtual void on_stop(coroutine_base* r);
 
 protected:
+    static scheduler_t* s_instance;
+    bool m_stop;
     coroutine_ptr m_root;
     coroutine_ptr m_current;
     std::deque<coroutine_ptr> m_queue;
 };
-
-extern scheduler_t* current_scheduler;
 
 } /* namespace coroutine */
 

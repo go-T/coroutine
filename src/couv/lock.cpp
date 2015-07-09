@@ -21,7 +21,7 @@ lock_t::~lock_t()
 
 void lock_t::lock()
 {
-    coroutine_ptr current = current_coroutine;
+    coroutine_ptr current = coroutine_base::self();
     if(m_flag) { // wait
         if(m_owner != current && m_queue.find(current) == m_queue.end()) {
             current->set_blocked(true);
@@ -50,7 +50,7 @@ bool lock_t::try_lock()
 {
     if(!m_flag) {
         m_flag = true;
-        m_owner = current_coroutine;
+        m_owner = coroutine_base::self();
         return true;
     }
     return false;

@@ -28,6 +28,10 @@ public:
     bool is_closed() {
         return m_closed;
     }
+    
+    operator bool() const {
+        return !m_closed;
+    }
 
     void close() {
         m_closed = true;
@@ -42,13 +46,15 @@ public:
         m_sem.signal();
     }
 
-    void receive(T& t) {
-        if(m_closed)
-            return;
+    channel<T>& receive(T& t) {
+        if(m_closed) {
+            return *this;
+        }
 
         m_sem.wait();
         t = m_queue.front();
         m_queue.pop_front();
+        return *this;
     }
 
     T receive() {

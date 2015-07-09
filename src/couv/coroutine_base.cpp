@@ -6,7 +6,6 @@
  */
 #include "couv/coroutine_base.h"
 #include "couv/scheduler.h"
-#include "couv/scheduler.h"
 #include "log/Logger.h"
 
 namespace couv
@@ -40,8 +39,13 @@ void coroutine_base::resume_coroutine(coroutine_ptr other)
     m_active = false;
     other->m_active = true;
 
-    current_scheduler->set_current(other);
+    scheduler_t::self()->set_current(other);
     swapcontext(&m_ctx, &other->m_ctx);
+}
+
+coroutine_ptr coroutine_base::self()
+{
+    return scheduler_t::self()->current();
 }
 
 } /* namespace coroutine */
