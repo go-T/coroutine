@@ -23,28 +23,28 @@ int main()
 
     sem_t sem;
     go{
-            std::cout << "hello world 1.1\n";
-            sem.wait();
-            std::cout << "hello world 1.2\n";
+        std::cout << "hello world 1.1\n";
+        sem.wait();
+        std::cout << "hello world 1.2\n";
     };
     go{
-            std::cout << "hello world 2.1\n";
-            sem.wait();
-            std::cout << "hello world 2.2\n";
+        std::cout << "hello world 2.1\n";
+        sem.wait();
+        std::cout << "hello world 2.2\n";
     };
     go{
-            std::cout << "hello world 3.1\n";
-            sem.wait();
-            std::cout << "hello world 3.2\n";
+        std::cout << "hello world 3.1\n";
+        sem.wait();
+        std::cout << "hello world 3.2\n";
     };
     go{
-            std::cout << "hello world 4.1\n";
-            sem.signal();
-            std::cout << "hello world 4.2\n";
-            sem.signal();
-            std::cout << "hello world 4.3\n";
-            sem.signal();
-            std::cout << "hello world 4.4\n";
+        std::cout << "hello world 4.1\n";
+        sem.signal();
+        std::cout << "hello world 4.2\n";
+        sem.signal();
+        std::cout << "hello world 4.3\n";
+        sem.signal();
+        std::cout << "hello world 4.4\n";
     };
     scheduler.run();
     std::cout << "hello world 5\n";

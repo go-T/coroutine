@@ -40,6 +40,7 @@ public:
     virtual bool add(coroutine_ptr r);
     virtual void remove(coroutine_ptr r);
     virtual void run();
+    virtual void stop() { m_stop = true; }
     
     void yield_coroutine(coroutine_ptr r);
     void yield_coroutine();
@@ -52,9 +53,7 @@ public:
     void set_current(coroutine_ptr r) { m_current = r; }
     coroutine_ptr current(){ return m_current; }
 
-    void stop()         { m_stop = true; }
-    bool is_stop()const { return m_stop; }
-
+    bool is_stop()const      { return m_stop;     }
     void install()           { s_instance = this; }
     bool is_installed()const { return s_instance == this; }
 
@@ -66,7 +65,7 @@ public:
 
 protected:
     virtual void resume_coroutine(coroutine_ptr r);
-    virtual bool has_more();
+
 
     virtual void on_start(coroutine_base* r);
     virtual void on_stop(coroutine_base* r);

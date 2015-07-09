@@ -23,6 +23,7 @@ add_definitions(-DHAVE_LIBPTHREAD=1 )
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin") 
 	add_definitions(-D_DARWIN_USE_64_BIT_INODE=1 )
 	add_definitions(-D_DARWIN_UNLIMITED_SELECT=1)
+	add_definitions(-D_DARWIN_C_SOURCE=1)
     set(UV_PLATFORM_SRC
         src/unix/fsevents.c
         src/unix/kqueue.c
@@ -45,7 +46,7 @@ endif()
 
 
 
-add_incs(${CMAKE_CURRENT_SOURCE_DIR}/include)
+add_incs(${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_objs(uv
   src/fs-poll.c
   src/inet.c

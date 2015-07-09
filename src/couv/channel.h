@@ -57,7 +57,7 @@ public:
         return *this;
     }
 
-    T receive() {
+    T receive(const T& def = T()) {
         if(!m_closed) {
             m_sem.wait();
             if(!m_closed) {
@@ -66,7 +66,7 @@ public:
                 return t;
             }
         }
-        return T();
+        return def;
     }
 };
 

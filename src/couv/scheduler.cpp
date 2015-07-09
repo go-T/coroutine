@@ -111,7 +111,7 @@ void scheduler_t::run()
 
     install();
 
-    while(!m_queue.empty())
+    while(!m_stop && !m_queue.empty())
     {
         bool found = false;
         for(std::deque<coroutine_ptr>::iterator it = m_queue.begin(); it != m_queue.end(); ++it)
@@ -127,10 +127,8 @@ void scheduler_t::run()
 
         if(!found)
         {
-            if(!has_more())
-            {
-                break;
-            }
+            logWarn("all coroutine blocked \n");
+            break;
         }
         else
         {
@@ -139,12 +137,6 @@ void scheduler_t::run()
     }
 
     s_instance = nullptr;
-}
-    
-bool scheduler_t::has_more()
-{
-    logWarn("all coroutine blocked \n");
-    return false;
 }
 
 void scheduler_t::on_start(coroutine_base* r)

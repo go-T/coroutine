@@ -25,6 +25,8 @@ namespace couv
 namespace uvpp
 {
 
+extern const char* get_handle_name(uv_handle_t* h);
+
 template<typename T1, typename T2>
 struct mixed: public T1
 {
@@ -152,6 +154,11 @@ public:
     {
     }
 
+    ~loop_t()
+    {
+        stop();
+    }
+
     uv_loop_t* get()
     {
         return m_loop.get();
@@ -160,6 +167,11 @@ public:
     bool is_alive()
     {
         return ::uv_loop_alive(get());
+    }
+
+    void stop()
+    {
+        ::uv_stop(get());
     }
 
     int run(uv_run_mode mode = UV_RUN_DEFAULT)
@@ -177,14 +189,54 @@ public:
     {
     }
 
-    virtual bool has_more()
+    void run()
     {
-        return s_loop.run(UV_RUN_NOWAIT) != 0;
+        install();
+
+        while(!m_stop)
+        {
+            bool found = false;
+            for(std::deque<coroutine_ptr>::iterator it = m_queue.begin(); it != m_queue.end(); ++it)
+            {
+                coroutine_ptr& r = *it;
+                if(!r->is_blocked() && !r->is_done() && r != m_current)
+                {
+                    found = true;
+                    resume_coroutine(r);
+                    break;
+                }
+            }
+
+            if(!found)
+            {
+                if(s_loop.run(UV_RUN_NOWAIT) == 0)
+                {
+                    break;
+                }
+            }
+        }
+        
+        // close all pending handles.
+        ::uv_walk(s_loop.get(), [](uv_handle_t* handle, void* arg){
+            if(handle && !::uv_is_closing(handle)) {
+                // TODO: release object in coroutine
+                ::uv_close(handle, nullptr);
+            }
+        }, nullptr);
+        
+        s_loop.run();
+        s_instance = nullptr;
     }
 
     loop_t* loop()
     {
         return &s_loop;
+    }
+
+    void stop()
+    {
+        scheduler_t::stop();
+        s_loop.stop();
     }
 
     static uvscheduler_t* self()
@@ -194,6 +246,76 @@ public:
 };
 
 
+class dns_t
+{
+    loop_t* m_loop;
+    channel< std::tuple<int,addrinfo*> > m_getaddr_channel;
+public:
+    dns_t(loop_t* lp=nullptr):m_loop(lp)
+    {
+    }
+
+    int get_addr_info(const char*host, int port, std::function<void(int, struct addrinfo*)>&& cb)
+    {
+        typedef mixed<uv_getaddrinfo_t, addrinfo> getaddrinfo_t;
+
+        getaddrinfo_t* req = new getaddrinfo_t;
+        req->data = this;
+
+        struct addrinfo& hints = req->m_data;
+        memset(&hints, 0, sizeof(addrinfo));
+        hints.ai_family = AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_flags = 0;
+        hints.ai_protocol = 0;
+
+        char buf[20];
+        snprintf(buf, 20, "%d", port);
+
+        int ret = ::uv_getaddrinfo(m_loop->get(), req,
+                                   [](uv_getaddrinfo_t* req,int status, struct addrinfo* res){
+                                       void*data = req->data;
+                                       delete req;
+                                       static_cast<dns_t*>(data)->m_getaddr_channel.send(std::make_tuple(status, res));
+                                   }, host, buf, &req->m_data);
+        if(ret){
+            cb(ret, nullptr);
+            return ret;
+        } else {
+            std::tuple<int,addrinfo*> node;
+            if(m_getaddr_channel.receive(node)){
+                int status = std::get<0>(node);
+                struct addrinfo* addr_info = std::get<1>(node);
+                cb(status, addr_info);
+                ::uv_freeaddrinfo(addr_info);
+                return status;
+            }
+        }
+        return -1;
+    }
+};
+
+namespace create_helper
+{
+
+    inline void init(loop_t* lp, uv_tcp_t* h)
+    {
+        ::uv_tcp_init(lp->get(), h);
+    }
+
+    inline void init(loop_t* lp, uv_idle_t* h)
+    {
+        ::uv_idle_init(lp->get(), h);
+    }
+
+    template<typename T> inline T* create(loop_t* lp)
+    {
+        T* t = new T;
+        init(lp, t);
+        return t;
+    }
+};
+
 template<typename T>
 class handle_t
 {
@@ -201,14 +323,10 @@ class handle_t
     
     loop_t* m_loop;
     T* m_handle;
-    
-    static void close(T* t)
-    {
-        ::uv_close(reinterpret_cast<uv_handle_t*>(t), on_close);
-    }
 
     static void on_close(uv_handle_t* h)
     {
+        logDebug("delete handle_t %s %p", get_handle_name(h), h);
         delete h;
     }
 
@@ -217,16 +335,31 @@ class handle_t
         return loop?loop:uvscheduler_t::self()->loop();
     }
 public:
-    handle_t(loop_t* lp=nullptr, T* t = nullptr)
-        : m_loop(get_loop(lp)), m_handle(t?t:new T)
+    handle_t(loop_t* lp=nullptr, T*t=nullptr)
+        : m_loop(get_loop(lp)), m_handle(t?t:create_helper::create<T>(m_loop))
     {
         m_handle->data = this;
+        logDebug("new handle_t %s %p", get_handle_name(handle()), handle());
     }
     
     ~handle_t()
     {
-        logDebug("~handle_t()");
-        close(m_handle);
+        close();
+    }
+
+    void close()
+    {
+        if(m_handle)
+        {
+            logDebug("close handle_t %s %p", get_handle_name(handle()), m_handle);
+
+            uv_handle_t* t = handle();
+            m_handle = nullptr;
+            if(!::uv_is_closing(t))
+            {
+                ::uv_close(reinterpret_cast<uv_handle_t*>(t), on_close);
+            }
+        }
     }
     
     handle_t(const self_type& other) = delete;
@@ -254,6 +387,11 @@ public:
         return fno;
     }
 
+    bool is_valid()
+    {
+        return get()!=nullptr;
+    }
+
     bool is_active()
     {
         return ::uv_is_active(handle());
@@ -262,6 +400,16 @@ public:
     bool is_closing()
     {
         return ::uv_is_closing(handle());
+    }
+
+    void unref()
+    {
+        ::uv_unref(handle());
+    }
+
+    void ref()
+    {
+        ::uv_ref(handle());
     }
 };
     
@@ -273,7 +421,6 @@ public:
             :handle_t<uv_idle_t>(lp)
     {
         std::swap(m_cb, cb);
-        ::uv_idle_init(loop()->get(), get());
         start();
     }
 
@@ -304,8 +451,8 @@ protected:
 
     mem_buf_t m_alloc_buf;
 public:
-    stream_t(loop_t* lp=nullptr,T* t=nullptr)
-            : handle_t<T>(lp, t)
+    stream_t(loop_t* lp=nullptr, T*t=nullptr)
+            : handle_t<T>(lp,t)
     {
     }
 
@@ -367,7 +514,7 @@ public:
      * void cb(W* client, int status);
      */
     template<typename Client = W>
-    void accept(const std::function<void(W*,int)>& cb)
+    void accept(const std::function<void(const std::shared_ptr<Client>&,int)>& cb)
     {
         int status = 0;
         while(m_read_channel.receive(status) && status == 0){
@@ -375,7 +522,7 @@ public:
             if(status) {
                 cb(nullptr, status);
             } else {
-                Client* client = new Client(this->loop());
+                std::shared_ptr<Client> client = std::make_shared<Client>(this->loop());
                 accept(*client);
                 cb(client, status);
             }
@@ -417,8 +564,8 @@ public:
 
         if(ret) {
             cb(static_cast<W*>(this), ret);
-        } else {
-            cb(static_cast<W*>(this), m_write_channel.receive());
+        } else if(m_write_channel.receive(ret)) {
+            cb(static_cast<W*>(this), ret);
         }
         logDebug("write quit: %ld", ret);
         return ret;
@@ -446,58 +593,16 @@ public:
         m_write_channel.close();
         
         uv_shutdown_t* req = new uv_shutdown_t();
+        req->data = this;
+        
+        logDebug("shutdown: %p", this);
         int ret = ::uv_shutdown(req, stream(),
                 [](uv_shutdown_t* req, int status){
-                    delete static_cast<uv_shutdown_t*>(req);
+                    logDebug("shutdown callback:");
+                    delete req;
                 });
         logDebug("shutdown quit: %ld", ret);
         return ret;
-    }
-};
-    
-class dns_t
-{
-    loop_t* m_loop;
-    channel< std::tuple<int,addrinfo*> > m_getaddr_channel;
-public:
-    dns_t(loop_t* lp=nullptr):m_loop(lp)
-    {
-    }
-    
-    int get_addr_info(const char*host, int port, std::function<void(int, struct addrinfo*)>&& cb)
-    {
-        typedef mixed<uv_getaddrinfo_t, addrinfo> getaddrinfo_t;
-        
-        getaddrinfo_t* req = new getaddrinfo_t;
-        req->data = this;
-        
-        struct addrinfo& hints = req->m_data;
-        memset(&hints, 0, sizeof(addrinfo));
-        hints.ai_family = AF_UNSPEC;
-        hints.ai_socktype = SOCK_STREAM;
-        hints.ai_flags = 0;
-        hints.ai_protocol = 0;
-        
-        char buf[20];
-        snprintf(buf, 20, "%d", port);
-        
-        int ret = ::uv_getaddrinfo(m_loop->get(), req,
-                                   [](uv_getaddrinfo_t* req,int status, struct addrinfo* res){
-                                       void*data = req->data;
-                                       delete req;
-                                       static_cast<dns_t*>(data)->m_getaddr_channel.send(std::make_tuple(status, res));
-                                   }, host, buf, &req->m_data);
-        if(ret){
-            cb(ret, nullptr);
-            return ret;
-        } else {
-            std::tuple<int,addrinfo*> node = m_getaddr_channel.receive();
-            int status = std::get<0>(node);
-            struct addrinfo* addr_info = std::get<1>(node);
-            cb(status, addr_info);
-            ::uv_freeaddrinfo(addr_info);
-            return status;
-        }
     }
 };
 
@@ -507,10 +612,9 @@ protected:
     typedef stream_t<tcp_t, uv_tcp_t> parent_type;
     typedef mixed<uv_connect_t, sock_addr> connect_t;
 public:
-    tcp_t(loop_t* lp=nullptr, uv_tcp_t*t=nullptr)
-            : parent_type(lp, t)
+    tcp_t(loop_t* lp=nullptr)
+            : parent_type(lp)
     {
-        ::uv_tcp_init(this->loop()->get(), get());
     }
 
     int set_nodely(bool enable)
@@ -574,8 +678,8 @@ public:
         if(ret) {
             cb(this, ret);
             delete req;
-        } else {
-            cb(this, chan.receive());
+        } else if(chan.receive(ret)) {
+            cb(this, ret);
         }
         return ret;
     }
