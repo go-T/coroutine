@@ -17,8 +17,6 @@ set(LIB_OBJS ${LIB_OBJS} ${couv_OBJS})
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/deps/libuv-v1.6.1)
 
-message("objs ${LIB_OBJS}")
-
 build_exe(hello src/examples/hello.cpp)
 build_exe(lock src/examples/lock.cpp)
 build_exe(sem src/examples/sem.cpp)

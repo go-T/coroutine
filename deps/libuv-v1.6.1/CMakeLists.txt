@@ -1,3 +1,20 @@
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin") 
+    set(UV_PLATFORM_SRC
+        src/unix/fsevents.c
+        src/unix/kqueue.c
+        src/unix/darwin.c
+        src/unix/darwin-proctitle.c
+    )
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    set(UV_PLATFORM_SRC
+        src/unix/linux-core.c
+        src/unix/linux-inotify.c
+        src/unix/linux-syscalls.c
+    )
+else()
+    message(FATAL_ERROR "${CMAKE_SYSTEM_NAME} not support")
+endif()
+
 add_incs(${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_objs(uv
   src/fs-poll.c
@@ -23,14 +40,9 @@ add_objs(uv
   src/unix/timer.c
   src/unix/tty.c
   src/unix/udp.c
-  src/unix/darwin.c
-  src/unix/darwin-proctitle.c
-  src/unix/fsevents.c
-  src/unix/kqueue.c
   src/unix/proctitle.c
+  ${UV_PLATFORM_SRC}
 )
-
-message("libuv ${uv_OBJS}}")
 
 set(LIB_INCS ${LIB_INCS} ${CMAKE_CURRENT_SOURCE_DIR}/include PARENT_SCOPE)
 set(LIB_OBJS ${LIB_OBJS} ${uv_OBJS} PARENT_SCOPE)

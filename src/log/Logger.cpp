@@ -17,7 +17,7 @@ static const char* baseName(const char* path)
 {
     if (path)
     {
-        char* name = strrchr(path, '/');
+        const char* name = strrchr(path, '/');
         if (name)
             return name + 1;
     }
@@ -151,7 +151,7 @@ protected:
     void openFile()
     {
         time_t now = time(NULL);
-        struct tm tm = {};
+        struct tm tm;
         localtime_r(&now, &tm);
 
         int newstamp = ((tm.tm_year * 100 + (tm.tm_mon + 1)) * 100 + tm.tm_mday) * 100 + tm.tm_hour;
