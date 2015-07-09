@@ -47,24 +47,26 @@ public:
     }
 
     channel<T>& receive(T& t) {
-        if(m_closed) {
-            return *this;
+        if(!m_closed) {
+            m_sem.wait();
+            if(!m_closed) {
+                t = m_queue.front();
+                m_queue.pop_front();
+            }
         }
-
-        m_sem.wait();
-        t = m_queue.front();
-        m_queue.pop_front();
         return *this;
     }
 
     T receive() {
-        if(m_closed)
-            return T();
-
-        m_sem.wait();
-        T t = m_queue.front();
-        m_queue.pop_front();
-        return t;
+        if(!m_closed) {
+            m_sem.wait();
+            if(!m_closed) {
+                T t = m_queue.front();
+                m_queue.pop_front();
+                return t;
+            }
+        }
+        return T();
     }
 };
 

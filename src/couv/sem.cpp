@@ -34,7 +34,7 @@ void sem_t::signal()
     if(m_counter >= 0) {
         m_counter++;
     }
-    else {
+    else if(!m_queue.empty()){
         coroutine_ptr current = m_queue.front(); m_queue.pop_front();
         current->set_blocked(false);
         yield(current);
