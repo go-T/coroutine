@@ -215,15 +215,7 @@ public:
                 }
             }
         }
-        
-        // close all pending handles.
-        ::uv_walk(s_loop.get(), [](uv_handle_t* handle, void* arg){
-            if(handle && !::uv_is_closing(handle)) {
-                // TODO: release object in coroutine
-                ::uv_close(handle, nullptr);
-            }
-        }, nullptr);
-        
+
         s_loop.run();
         s_instance = nullptr;
     }
@@ -237,6 +229,13 @@ public:
     {
         scheduler_t::stop();
         s_loop.stop();
+        
+        ::uv_walk(s_loop.get(), [](uv_handle_t* handle, void* arg){
+            if(handle && !::uv_is_closing(handle)) {
+                // TODO: release object in coroutine
+                ::uv_close(handle, nullptr);
+            }
+        }, nullptr);
     }
 
     static uvscheduler_t* self()

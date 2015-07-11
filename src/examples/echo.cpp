@@ -8,8 +8,28 @@
 #include "couv/scheduler.h"
 #include "couv/uvpp.h"
 
+#include <string>
+
 using namespace couv;
 using namespace couv::uvpp;
+
+/**
+ * go {
+ *    declar yyy;
+ *
+ *    try{
+ *
+ *       main code;
+ *
+ *    } catch(...) {
+ *
+ *    }
+ *
+ *    save_end
+ *
+ * }
+ *
+ */
 
 
 int main()
@@ -26,14 +46,24 @@ int main()
             goo[&, new_conn]{
                 std::shared_ptr<tcp_t> client(new_conn);
                 client->read([&](tcp_t* client, char* buf, ssize_t len){
-                    buf[len] = 0;
-                    if (strncasecmp(buf, "quit\r\n", len) == 0) {
+                    
+                    int n = len-1;
+                    while (n >= 0 && (buf[n] == ' ' || buf[n] == '\r' || buf[n] == '\n')) {
+                        --n;
+                    }
+                    std::string cmd(buf, n+1);
+                    
+                    if (cmd == "end") {
                         client->write("bye", 3, [](tcp_t* client, int len){
-                            client->shutdown();
+                            client->close();
                         });
-                    } else if(strncasecmp(buf, "exit\r\n", len) == 0) {
+                    } else if(cmd == "close") {
                         client->write("byebye", 6, [&](tcp_t* client, int len){
                             client->close();
+                            server.close();
+                        });
+                    } else if (cmd == "shutdown") {
+                        client->write("bye all", 6, [&](tcp_t* client, int len){
                             scheduler.stop();
                         });
                     } else {
