@@ -1,0 +1,13 @@
+1. 学习stackless和stackful区别
+
+2. 压力测试:
+    a. 快排. 性能
+    b. http_echo. 性能, 连接数.
+
+3. 垃圾回收:
+    a. 函数级.
+    b. coroutine级.
+    c. scheduler级.
+    d. 全局.
+
+4. libev移植.

@@ -47,7 +47,7 @@ endif()
 
 
 add_incs(${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
-add_objs(uv
+add_objs(uv_OBJS
   src/fs-poll.c
   src/inet.c
   src/threadpool.c

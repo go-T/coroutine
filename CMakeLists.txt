@@ -9,8 +9,8 @@ include(halo)
 
 add_definitions(-D_XOPEN_SOURCE=1)
 
-add_pkg(libuv uv)
-#add_subdirectory(${PROJECT_SOURCE_DIR}/deps/libuv-v1.6.1)
+#add_pkg(libuv uv)
+add_subdirectory(${PROJECT_SOURCE_DIR}/deps/libuv-v1.6.1)
 
 add_incs(src)
 add_objs(couv_OBJS src/couv/*.cpp src/log/*.cpp)
@@ -28,4 +28,4 @@ add_objs(test_OBJS src/couv/test/*.cpp)
 set(LIB_OBJS ${LIB_OBJS} ${test_OBJS})
 
 build_exe(all_test)
-add_test(all_test all_test)
+add_test(all_test ${EXECUTABLE_OUTPUT_PATH}/all_test)

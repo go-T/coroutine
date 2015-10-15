@@ -34,19 +34,17 @@ using namespace couv::uvpp;
 
 int main()
 {
-    //Logger::logger().setDevice(NULL);
+    Logger::logger().setDevice(NULL);
 
     uvscheduler_t scheduler;
     tcp_t server;
 
     go {
         server.listen(9527);
-        server.accept<tcp_t>([&](const std::shared_ptr<tcp_t>& new_conn, int status){
-            logDebug("new_conn %p", new_conn.get());
-            goo[&, new_conn]{
-                std::shared_ptr<tcp_t> client(new_conn);
+        server.accept([&](int status){
+            go{
+                std::shared_ptr<tcp_t> client = server.accept<tcp_t>();
                 client->read([&](tcp_t* client, char* buf, ssize_t len){
-                    
                     int n = len-1;
                     while (n >= 0 && (buf[n] == ' ' || buf[n] == '\r' || buf[n] == '\n')) {
                         --n;

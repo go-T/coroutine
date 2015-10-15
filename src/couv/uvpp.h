@@ -244,56 +244,6 @@ public:
     }
 };
 
-
-class dns_t
-{
-    loop_t* m_loop;
-    channel< std::tuple<int,addrinfo*> > m_getaddr_channel;
-public:
-    dns_t(loop_t* lp=nullptr):m_loop(lp)
-    {
-    }
-
-    int get_addr_info(const char*host, int port, std::function<void(int, struct addrinfo*)>&& cb)
-    {
-        typedef mixed<uv_getaddrinfo_t, addrinfo> getaddrinfo_t;
-
-        getaddrinfo_t* req = new getaddrinfo_t;
-        req->data = this;
-
-        struct addrinfo& hints = req->m_data;
-        memset(&hints, 0, sizeof(addrinfo));
-        hints.ai_family = AF_UNSPEC;
-        hints.ai_socktype = SOCK_STREAM;
-        hints.ai_flags = 0;
-        hints.ai_protocol = 0;
-
-        char buf[20];
-        snprintf(buf, 20, "%d", port);
-
-        int ret = ::uv_getaddrinfo(m_loop->get(), req,
-                                   [](uv_getaddrinfo_t* req,int status, struct addrinfo* res){
-                                       void*data = req->data;
-                                       delete req;
-                                       static_cast<dns_t*>(data)->m_getaddr_channel.send(std::make_tuple(status, res));
-                                   }, host, buf, &req->m_data);
-        if(ret){
-            cb(ret, nullptr);
-            return ret;
-        } else {
-            std::tuple<int,addrinfo*> node;
-            if(m_getaddr_channel.receive(node)){
-                int status = std::get<0>(node);
-                struct addrinfo* addr_info = std::get<1>(node);
-                cb(status, addr_info);
-                ::uv_freeaddrinfo(addr_info);
-                return status;
-            }
-        }
-        return -1;
-    }
-};
-
 namespace create_helper
 {
 
@@ -305,6 +255,10 @@ namespace create_helper
     inline void init(loop_t* lp, uv_idle_t* h)
     {
         ::uv_idle_init(lp->get(), h);
+    }
+
+    inline void init(loop_t* lp, uv_getaddrinfo_t* h)
+    {
     }
 
     template<typename T> inline T* create(loop_t* lp)
@@ -411,7 +365,53 @@ public:
         ::uv_ref(handle());
     }
 };
-    
+
+class dns_t
+{
+    loop_t* m_loop;
+    channel< std::tuple<int,addrinfo*> > m_getaddr_channel;
+public:
+    dns_t(loop_t* lp=nullptr):m_loop(lp)
+    {
+    }
+
+    int get_addr_info(const char*host, int port, std::function<void(int, struct addrinfo*)>&& cb)
+    {
+        struct addrinfo hints;
+        memset(&hints, 0, sizeof(addrinfo));
+        hints.ai_family = AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_flags = 0;
+        hints.ai_protocol = 0;
+
+        char buf[20];
+        snprintf(buf, 20, "%d", port);
+
+        uv_getaddrinfo_t* req = new uv_getaddrinfo_t;
+        req->data = this;
+        int ret = ::uv_getaddrinfo(m_loop->get(), req,
+                                   [](uv_getaddrinfo_t* req, int status, struct addrinfo* res){
+                                       void*data = req->data;
+                                       delete req;
+                                       static_cast<dns_t*>(data)->m_getaddr_channel.send(std::make_tuple(status, res));
+                                   }, host, buf, &hints);
+        if(ret){
+            cb(ret, nullptr);
+            return ret;
+        } else {
+            std::tuple<int,addrinfo*> node;
+            if(m_getaddr_channel.receive(node)){
+                int status = std::get<0>(node);
+                struct addrinfo* addr_info = std::get<1>(node);
+                cb(status, addr_info);
+                ::uv_freeaddrinfo(addr_info);
+                return status;
+            }
+        }
+        return -1;
+    }
+};
+
 class idle_t: public handle_t<uv_idle_t>
 {
     std::function<void()> m_cb;
@@ -489,6 +489,17 @@ public:
         return ::uv_accept(stream(), client.stream());
     }
 
+    template<typename C>
+    std::shared_ptr<C> accept()
+    {
+        std::shared_ptr<C> client = std::make_shared<C>(this->loop());
+        if(::uv_accept(stream(), client->stream()))
+        {
+            client.reset();
+        }
+        return client;
+    }
+
     int read_start()
     {
         return ::uv_read_start(stream(),
@@ -512,18 +523,15 @@ public:
     /**
      * void cb(W* client, int status);
      */
-    template<typename Client = W>
-    void accept(const std::function<void(const std::shared_ptr<Client>&,int)>& cb)
+    void accept(const std::function<void(int)>& cb)
     {
         int status = 0;
         while(m_read_channel.receive(status) && status == 0){
             logDebug("accept: %d", status);
             if(status) {
-                cb(nullptr, status);
+                cb(status);
             } else {
-                std::shared_ptr<Client> client = std::make_shared<Client>(this->loop());
-                accept(*client);
-                cb(client, status);
+                cb(status);
             }
         }
         logDebug("accept quit: %d", status);
